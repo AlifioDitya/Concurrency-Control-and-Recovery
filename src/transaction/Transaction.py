@@ -1,8 +1,7 @@
 from typing import Dict, List
 
-from Query import Query
-from BinaryData import Data
-
+from .Query import Query
+from .BinaryData import Data
 
 class Transaction:
     def __init__(self, start_timestamp: int, list_of_queries: List[Query]) -> None:
@@ -18,10 +17,6 @@ class Transaction:
     @property
     def current_query(self) -> Query:
         return self.list_of_queries[self.query_index]
-    
-    @property
-    def start_timestamp(self) -> int:
-        return self._start_timestamp
 
     def is_finished(self) -> bool:
         return self.query_index == self.length

@@ -1,8 +1,7 @@
 from typing import Callable, List
 
-from FileHandler import FileHandler
-from BinaryData import BinaryData
-
+from .FileHandler import FileHandler
+from .BinaryData import BinaryData
 
 class Query:
     def __init__(self, *file_names: str) -> None:
