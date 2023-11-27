@@ -8,6 +8,24 @@ from transaction.Query import Query, ReadQuery, WriteQuery, DisplayQuery, Functi
 
 
 class OCCTransaction(Transaction):
+    '''
+    Transaction for Optimistic Concurrency Control
+
+    Attributes:
+        start_timestamp (int): The start timestamp of the transaction.
+        list_of_queries (List[Query]): The list of queries in the transaction.
+        end_timestamp (int): The end timestamp of the transaction.
+        data_item_written (Set[str]): The set of data items written in the transaction.
+        data_item_read (Set[str]): The set of data items read in the transaction.
+
+    Methods:
+        validation_test(counter_timestamp: int, other: OCCTransaction) -> bool:
+            Returns True if the transaction is valid, False otherwise.
+        next_query() -> None:
+            Executes the next query in the transaction.
+        rollback(new_timestamp: int) -> None:
+            Rollbacks the transaction to the new timestamp.
+    '''
     def __init__(self, start_timestamp: int, list_of_queries: List[Query]) -> None:
         super().__init__(start_timestamp, list_of_queries)
 
@@ -55,6 +73,17 @@ class OCCTransaction(Transaction):
 
 
 class OCC(ConcurrencyControl):
+    '''
+    Optimistic Concurrency Control
+
+    Attributes:
+        list_of_transactions (List[OCCTransaction]): The list of transactions.
+        schedule (List[int]): The schedule of the transactions.
+
+    Methods:
+        run() -> None:
+            Runs the OCC algorithm.
+    '''
     def __init__(self, list_of_transactions: List[OCCTransaction], schedule: List[int]) -> None:
         super().__init__(list_of_transactions, schedule)
 
