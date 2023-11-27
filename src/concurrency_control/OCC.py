@@ -1,8 +1,9 @@
 from __future__ import annotations
 from typing import List, Set
 import sys
+import os
 
-from ConcurrencyControl import ConcurrencyControl
+from .ConcurrencyControl import ConcurrencyControl
 from transaction.Transaction import Transaction
 from transaction.Query import Query, ReadQuery, WriteQuery, DisplayQuery, FunctionQuery
 
@@ -50,12 +51,12 @@ class OCCTransaction(Transaction):
         if isinstance(current_query, WriteQuery):
             for filename in current_query.get_file_names():
                 self.data_item_written.add(filename)
-                print(f"Write to {filename} in Transaction {self.start_timestamp}")
+                print(f"Write to {os.path.basename(filename)} in Transaction {self.start_timestamp}")
 
         if isinstance(current_query, ReadQuery):
             for filename in current_query.get_file_names():
                 self.data_item_read.add(filename)
-                print(f"Read from {filename} in Transaction {self.start_timestamp}")
+                print(f"Read from {os.path.basename(filename)} in Transaction {self.start_timestamp}")
 
         if isinstance(current_query, (DisplayQuery, FunctionQuery)):
             query_type = "DISPLAY" if isinstance(current_query, DisplayQuery) else "FUNCTION"

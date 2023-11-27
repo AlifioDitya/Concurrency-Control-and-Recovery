@@ -9,6 +9,9 @@ class Query:
 
     def execute(self, *args: BinaryData) -> None:
         raise NotImplementedError()
+    
+    def get_file_names(self) -> List[str]:
+        return [file_handler.filename for file_handler in self.file_handlers]
 
 
 class ReadQuery(Query):
