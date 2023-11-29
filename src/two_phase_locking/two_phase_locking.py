@@ -34,12 +34,17 @@ def parse_schedule(schedule: list) -> list:
     # parse the schedule
     # return a list of tuple (operation, transaction_id, data_item)
     result = []
+    s : str
     for s in schedule:
-        operation = Operation.READ
-        if s[0] == 'W':
-            operation = Operation.WRITE
-        elif s[0] == 'C':
-            operation = Operation.COMMIT
+        match s[0].upper():
+            case "R":
+                operation = Operation.READ
+            case "W":
+                operation = Operation.WRITE
+            case "C":
+                operation = Operation.COMMIT
+            case _:
+                raise Exception("Invalid operation")
         transaction_id = int(s[1])
         data_item = s[3:-1]
         result.append((operation, transaction_id, data_item))
