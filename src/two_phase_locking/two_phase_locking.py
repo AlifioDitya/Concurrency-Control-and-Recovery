@@ -100,7 +100,9 @@ class LockManager:
         self.locks_table[data_item] = lock_type
         self.locks_table[(transaction_id, data_item)] = lock_type
 
-
+    def is_lock_shared(self, data_item: str) -> bool:
+        return len([t for t in self.locks_table if 
+                   isinstance(t, tuple) and t[1] == data_item]) > 1
 class TwoPhaseLocking:
     def __init__(self, schedule: list, lockmanager: LockManager = LockManager()):
         self.schedule = schedule
@@ -151,64 +153,73 @@ class TwoPhaseLocking:
 
         self.waiting_queue = []    
 
-    
     def print_operation(self, operation: Operation, transaction_id: int, data_item: str):
         if data_item == "":
             print(operation , " Transaction ID: ", transaction_id)
         else:
             print(operation , " Transaction ID: ", transaction_id, " Data Item: ", data_item)
-        
+
+    def process_read_write(self, 
+        operation: Operation, transaction_id: int, 
+        data_item: str,lock_type: LockType, upgrade: bool):
+
+        if self.is_waiting(transaction_id):
+            self.add_queue(operation, transaction_id, data_item)
+            return
+
+        if self.locks_manager.is_locked(data_item):
+            if self.locks_manager.has_lock(transaction_id, data_item):
+                if self.locks_manager.has_lock_type(transaction_id, data_item, lock_type):
+                    self.add_result(operation, transaction_id, data_item)
+                    return
+
+                if upgrade and self.locks_manager.lock_type(data_item) > lock_type and not self.locks_manager.is_lock_shared(data_item):
+                    self.locks_manager.upgrade_lock(transaction_id, data_item, lock_type)
+                    self.add_upgrade_result(transaction_id, data_item, lock_type)
+                    self.add_result(operation, transaction_id, data_item)
+                    return
+
+            if upgrade and lock_type == self.locks_manager.lock_type(data_item) == LockType.S:
+                self.locks_manager.lock_data(transaction_id, data_item, lock_type)
+                self.add_lock_result(transaction_id, data_item, lock_type)
+                self.add_result(operation, transaction_id, data_item)
+                return
+            
+            self.add_queue(operation, transaction_id, data_item)
+            return
+
+        self.locks_manager.lock_data(transaction_id, data_item, lock_type)
+        self.add_lock_result(transaction_id, data_item, lock_type)
+        self.add_result(operation, transaction_id, data_item)
+
+
+    def process_commit(self, transaction_id: int, operation: Operation, data_item: str):
+        if self.is_waiting(transaction_id):
+            self.add_queue(operation, transaction_id, data_item)
+            return
+
+        self.add_result(operation, transaction_id, data_item)
+        if self.locks_manager.is_locked_by(transaction_id):
+            for data_item in [t[1] for t in self.locks_manager.locks_table if t[0] == transaction_id]:
+                self.add_unlock_result(transaction_id, data_item)
+            self.locks_manager.unlock(transaction_id)
+            self.queue_to_schedule()
+
 
     def run(self, upgrade=True):
-        while self.parsed_schedule:
-
+        while len(self.parsed_schedule) > 0:
             operation : Operation
             transaction_id : int
             data_item : str
             operation, transaction_id, data_item = self.parsed_schedule.pop(0) 
-            # self.print_current_operation(operation, transaction_id, data_item)
 
             match operation:
                 case Operation.READ | Operation.WRITE:
                     lock_type = LockType.X if operation == Operation.WRITE or not upgrade else LockType.S
-
-                    if self.is_waiting(transaction_id):
-                        self.add_queue(operation, transaction_id, data_item)
-
-                    elif self.locks_manager.is_locked(data_item):
-                        if self.locks_manager.has_lock(transaction_id, data_item):
-                            if self.locks_manager.has_lock_type(transaction_id, data_item, lock_type):
-                                self.add_result(operation, transaction_id, data_item)
-
-                            elif upgrade:
-                                if self.locks_manager.lock_type(data_item) > lock_type:
-                                    self.locks_manager.upgrade_lock(transaction_id, data_item, lock_type)
-                                    self.add_upgrade_result(transaction_id, data_item, lock_type)
-                                self.add_result(operation, transaction_id, data_item)
-
-                        elif lock_type == self.locks_manager.lock_type(data_item) == LockType.S and upgrade:
-                            self.locks_manager.lock_data(transaction_id, data_item, lock_type)
-                            self.add_lock_result(transaction_id, data_item, lock_type)
-                            self.add_result(operation, transaction_id, data_item)
-    
-                        else:
-                            self.add_queue(operation, transaction_id, data_item)
-                    else:
-                        self.locks_manager.lock_data(transaction_id, data_item, lock_type)
-                        self.add_lock_result(transaction_id, data_item, lock_type)
-                        self.add_result(operation, transaction_id, data_item)
+                    self.process_read_write(operation, transaction_id, data_item, lock_type, upgrade)
 
                 case Operation.COMMIT:
-                    if self.is_waiting(transaction_id):
-                        self.add_queue(operation, transaction_id, data_item)
-                    else:
-                        self.add_result(operation, transaction_id, data_item)
-                        if self.locks_manager.is_locked_by(transaction_id):
-                            for data_item in self.locks_manager.locks_table:
-                                if type(data_item) == tuple and data_item[0] == transaction_id:
-                                    self.add_unlock_result(transaction_id, data_item[1])
-                            self.locks_manager.unlock(transaction_id)
-                        self.queue_to_schedule()
+                    self.process_commit(transaction_id, operation, data_item)
 
                 case _:
                     raise Exception("Invalid operation")
@@ -227,12 +238,9 @@ if __name__ == "__main__":
 
     schedule = parse_input(sample_input_3)
 
-    try: 
-        transaction = TwoPhaseLocking(schedule)
-        transaction.run(upgrade=True)
-        print(transaction.result)
-    except Exception as e:
-        print(e)
+    transaction = TwoPhaseLocking(schedule)
+    transaction.run(upgrade=True)
+    print(transaction.result)
 
 
 
