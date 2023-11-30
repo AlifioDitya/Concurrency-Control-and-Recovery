@@ -4,7 +4,7 @@ import os, sys
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(CURRENT_DIR)
 
-from two_phase_locking import TwoPhaseLocking, parse_input, Operation, LockType
+from two_phase_locking import TwoPhaseLocking, parse_input, Operation, LockType, LockManager
 
 class TestTwoPhaseLocking(unittest.TestCase):
 
@@ -23,31 +23,31 @@ class TestTwoPhaseLocking(unittest.TestCase):
         list_schedule = parse_input(schedule)
         t = TwoPhaseLocking(list_schedule)
 
-        self.assertTrue(t.lock_data_item(1, "A", LockType.X))
+        t.locks_manager.lock_data(1, "A", LockType.X)
 
-        self.assertTrue(t.is_locked_by(1))
-        self.assertTrue(t.is_locked("A"))
+        self.assertTrue(t.locks_manager.is_locked_by(1))
+        self.assertTrue(t.locks_manager.is_locked("A"))
 
     def test_unlock(self):
         schedule ="R1(A); W1(A); C1"
         list_schedule = parse_input(schedule)
         t = TwoPhaseLocking(list_schedule)
-        t.lock_data_item(1, "A", LockType.X)
-        t.unlock(1)
+        t.locks_manager.lock_data(1, "A", LockType.X)
+        t.locks_manager.unlock(1)
 
-        self.assertFalse(t.is_locked_by(1))
-        self.assertFalse(t.is_locked("A"))
+        self.assertFalse(t.locks_manager.is_locked_by(1))
+        self.assertFalse(t.locks_manager.is_locked("A"))
 
 
     def test_queue(self):
         schedule ="R1(A); W1(A); C1"
         list_schedule = parse_input(schedule)
         t = TwoPhaseLocking(list_schedule)
-        t.add_to_queue(Operation.READ, 1, "A")
+        t.add_queue(Operation.READ, 1, "A")
 
         self.assertTrue(t.is_waiting(1))
 
-        t.remove_from_queue(1)
+        t.remove_queue(1)
 
         self.assertFalse(t.is_waiting(1))
 
