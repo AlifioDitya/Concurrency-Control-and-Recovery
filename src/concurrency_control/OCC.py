@@ -1,12 +1,10 @@
 from __future__ import annotations
 from typing import List, Set
 import sys
-import os
 
 from .ConcurrencyControl import ConcurrencyControl
 from transaction.Transaction import Transaction
-from transaction.Query import Query, ReadQuery, WriteQuery, DisplayQuery, FunctionQuery
-
+from transaction.Query import Query, Read, Write
 
 class OCCTransaction(Transaction):
     '''
@@ -20,7 +18,7 @@ class OCCTransaction(Transaction):
         data_item_read (Set[str]): The set of data items read in the transaction.
 
     Methods:
-        validation_test(counter_timestamp: int, other: OCCTransaction) -> bool:
+        validation_test(validation_timestamp: int, other: OCCTransaction) -> bool:
             Returns True if the transaction is valid, False otherwise.
         next_query() -> None:
             Executes the next query in the transaction.
@@ -37,32 +35,26 @@ class OCCTransaction(Transaction):
         self.data_item_written: Set[str] = set()
         self.data_item_read: Set[str] = set()
 
-    def validation_test(self, counter_timestamp: int, other: OCCTransaction) -> bool:
+    def validation_test(self, validation_timestamp: int, other: OCCTransaction) -> bool:
         if self.start_timestamp <= other.start_timestamp:
             return True
         if self.start_timestamp >= other.end_timestamp:
             return True
-        if self.start_timestamp < other.end_timestamp and counter_timestamp >= other.end_timestamp and not self.data_item_read.intersection(other.data_item_written):
+        if self.start_timestamp < other.end_timestamp and validation_timestamp >= other.end_timestamp and not self.data_item_read.intersection(other.data_item_written):
             return True
         return False
 
     def next_query(self) -> None:
         current_query = self.current_query
-        if isinstance(current_query, WriteQuery):
-            for filename in current_query.get_file_names():
-                self.data_item_written.add(filename)
-                print(f"Write to {os.path.basename(filename)} in Transaction {self.start_timestamp}")
+        if isinstance(current_query, Write):
+            item = current_query.get_data_item()
+            self.data_item_written.add(item)
+            current_query.show(self.start_timestamp)
 
-        if isinstance(current_query, ReadQuery):
-            for filename in current_query.get_file_names():
-                self.data_item_read.add(filename)
-                print(f"Read from {os.path.basename(filename)} in Transaction {self.start_timestamp}")
-
-        if isinstance(current_query, (DisplayQuery, FunctionQuery)):
-            query_type = "DISPLAY" if isinstance(current_query, DisplayQuery) else "FUNCTION"
-            print(
-                f"{query_type} executed in Transaction {self.start_timestamp}"
-            )
+        if isinstance(current_query, Read):
+            item = current_query.get_data_item()
+            self.data_item_read.add(item)
+            current_query.show(self.start_timestamp)
 
         super().next_query()
 
@@ -70,7 +62,7 @@ class OCCTransaction(Transaction):
         self.data_item_written = set()
         self.data_item_read = set()
 
-        super().rollback(new_timestamp)
+        super().rollback(new_timestamp)        
 
 
 class OCC(ConcurrencyControl):
@@ -78,45 +70,41 @@ class OCC(ConcurrencyControl):
     Optimistic Concurrency Control
 
     Attributes:
-        list_of_transactions (List[OCCTransaction]): The list of transactions.
+        transactions (List[OCCTransaction]): The list of transactions.
         schedule (List[int]): The schedule of the transactions.
 
     Methods:
         run() -> None:
             Runs the OCC algorithm.
     '''
-    def __init__(self, list_of_transactions: List[OCCTransaction], schedule: List[int]) -> None:
-        super().__init__(list_of_transactions, schedule)
+    def __init__(self, transactions: List[OCCTransaction], schedule: List[int]) -> None:
+        super().__init__(transactions, schedule)
 
     def run(self):
         temp_schedule: List[int] = [timestamp for timestamp in self.schedule]
         active_timestamp: List[int] = []
         counter = 0
 
+        # Run until all transactions are finished
         while temp_schedule:
             current_timestamp = temp_schedule.pop(0)
 
             if current_timestamp not in active_timestamp:
                 active_timestamp.append(current_timestamp)
-                print(f"Transaction {current_timestamp} started.")
+                print(f"T{current_timestamp} started.")
 
-            transaction: OCCTransaction = self.get_transaction(
-                current_timestamp
-            )
+            transaction: OCCTransaction = self.get_transaction(current_timestamp)
 
             transaction.next_query()
 
             if transaction.is_finished():
+                # Validation test for all active transactions
                 valid = all(transaction.validation_test(
                     current_timestamp +
                     counter, self.get_transaction(timestamp)
                 ) for timestamp in active_timestamp)
 
                 if valid:
-                    print(
-                        f"Transaction {transaction.start_timestamp} committed."
-                    )
-                    print("RESULT:")
                     transaction.commit()
                     transaction.end_timestamp = current_timestamp + counter
 
@@ -125,7 +113,8 @@ class OCC(ConcurrencyControl):
                     active_timestamp = [ts for ts in active_timestamp if ts != current_timestamp]
                     new_timestamp = current_timestamp + counter + len(temp_schedule)
 
-                    print(f"Transaction {current_timestamp} rolled back.")
+                    print(f"Conflict with T{active_timestamp[-1]}.")
+
                     transaction.rollback(new_timestamp)
 
                     temp_schedule.extend(

@@ -1,51 +1,19 @@
-from typing import Callable, List
-
-from .FileHandler import FileHandler
-from .BinaryData import BinaryData
+from typing import List
 
 class Query:
-    def __init__(self, *file_names: str) -> None:
-        self.file_handlers: List[FileHandler] = [FileHandler(filename) for filename in file_names]
-
-    def execute(self, *args: BinaryData) -> None:
-        raise NotImplementedError()
+    def __init__(self, item: str) -> None:
+        self.item: str = item
     
-    def get_file_names(self) -> List[str]:
-        return [file_handler.filename for file_handler in self.file_handlers]
+    def get_data_item(self) -> List[str]:
+        return self.item
+    
+    def show(self) -> None:
+        raise NotImplementedError()
 
+class Read(Query):
+    def show(self, timestamp: int) -> None:
+        print(f"R{timestamp}({self.item})")
 
-class ReadQuery(Query):
-    def execute(self, *args: BinaryData) -> None:
-        for data, file_handler in zip(args, self.file_handlers):
-            data.set_value(file_handler.read())
-
-
-class WriteQuery(Query):
-    def execute(self, *args: BinaryData) -> None:
-        for data, file_handler in zip(args, self.file_handlers):
-            file_handler.write(data.get_value())
-
-
-class FunctionQuery(Query):
-    def __init__(self, *file_names: str, function: Callable[..., int] = lambda *args: args[0]) -> None:
-        super().__init__(*file_names)
-        self.function = function
-
-    def execute(self, *args: BinaryData) -> None:
-        values = [data.get_value() for data in args]
-        args[0].set_value(self.function(*values))
-
-
-class DisplayQuery(Query):
-    def __init__(self, *file_names: str, function: Callable[..., int] = lambda *args: args) -> None:
-        super().__init__(*file_names)
-        self.function = function
-
-    def execute(self, *args: BinaryData) -> None:
-        values = [data.get_value() for data in args]
-        result = self.function(*values)
-
-        if isinstance(result, tuple):
-            print(" ".join(map(str, result)))
-        elif isinstance(result, int):
-            print(result)
+class Write(Query):
+    def show(self, timestamp: int) -> None:
+        print(f"W{timestamp}({self.item})")

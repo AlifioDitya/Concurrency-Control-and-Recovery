@@ -1,37 +1,27 @@
-from transaction.Query import ReadQuery, WriteQuery, FunctionQuery, DisplayQuery
+from transaction.Query import Read, Write
 from concurrency_control.OCC import OCCTransaction, OCC
-import os
 
-ROOT_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))
-A_PATH = os.path.join(ROOT_DIR, "bin", "A.txt")
-B_PATH = os.path.join(ROOT_DIR, "bin", "B.txt")
+ITEM_A = 'A'
+ITEM_B = 'B'
 
 def main():
-    T25 = OCCTransaction(25, [
-        ReadQuery(B_PATH),
-        DisplayQuery(B_PATH, function=lambda B: B),
-        WriteQuery(B_PATH),
-        ReadQuery(A_PATH),
-        DisplayQuery(A_PATH, function=lambda A: A),
-        WriteQuery(A_PATH)
+    T1 = OCCTransaction(1, [
+        Read(ITEM_B),
+        Write(ITEM_B),
+        Read(ITEM_A),
+        Write(ITEM_A)
     ])
 
-    T26 = OCCTransaction(26, [
-        ReadQuery(B_PATH),
-        DisplayQuery(B_PATH, function=lambda B: B),
-        FunctionQuery(B_PATH, function=lambda B: B + 50),
-        DisplayQuery(B_PATH, function=lambda B: B),
-        WriteQuery(B_PATH),
-        ReadQuery(A_PATH),
-        DisplayQuery(A_PATH, function=lambda A: A),
-        FunctionQuery(A_PATH, function=lambda A: A + 50),
-        DisplayQuery(A_PATH, function=lambda A: A),
-        WriteQuery(A_PATH)
+    T2 = OCCTransaction(2, [
+        Read(ITEM_B),
+        Write(ITEM_B),
+        Read(ITEM_A),
+        Write(ITEM_A)
     ])
 
     concurrencyManager = OCC(
-        [T25, T26],
-        [25, 25, 25, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 25, 25, 25]
+        [T1, T2],
+        [1, 1, 2, 2, 2, 2, 1, 1]
     )
 
     concurrencyManager.run()
