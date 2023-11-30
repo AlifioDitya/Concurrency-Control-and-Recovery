@@ -5,7 +5,7 @@ from concurrency_control.TwoPhaseLocking import TwoPhaseLocking, parse_input, Lo
 ITEM_A = 'A'
 ITEM_B = 'B'
 
-def main():
+def occ():
     T1 = OCCTransaction(1, [
         Read(ITEM_B),
         Write(ITEM_B),
@@ -44,5 +44,16 @@ def two_phase():
 
 
 if __name__ == "__main__":
-    main()
-    two_phase()
+    print("Welcome to the Concurrency Control Simulator!")
+    print()
+    print("Choose an algorithm to run:")
+    print("1. Optimistic Concurrency Control")
+    print("2. Two Phase Locking")
+    print()
+    choice = input("Enter your choice: ")
+    print()
+
+    if choice == "1":
+        occ()
+    elif choice == "2":
+        two_phase()
