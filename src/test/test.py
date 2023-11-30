@@ -4,7 +4,10 @@ import os, sys
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(CURRENT_DIR)
 
-from two_phase_locking import TwoPhaseLocking, parse_input, Operation, LockType, LockManager
+PARENT_DIR = os.path.dirname(CURRENT_DIR)
+sys.path.append(PARENT_DIR)
+
+from concurrency_control.TwoPhaseLocking import TwoPhaseLocking, parse_input, Operation, LockType, LockManager
 
 class TestTwoPhaseLocking(unittest.TestCase):
 
@@ -57,8 +60,10 @@ class TestTwoPhaseLocking(unittest.TestCase):
     def test_result_simple(self):
         sample_input_1 = "R1(X); W2(X); W2(Y); W3(Y); W1(X); C1; C2; C3;"
         sample_input_2 = "R1(X); R2(Y); R1(Y); W2(Y); W1(X); C1; C2;"
-        sample_input_3 = "R1(X); R2(Y); R1(Y); R2(X); C1; C2;"            # no deadlock because shared unless not upgrade
+        sample_input_3 = "R1(X); R2(Y); R1(Y); R2(X); C1; C2;"            # deadlock if simple
         sample_input_4 = "R1(X) ;W2(Y) ;W2(X); W3(Y) ;W1(Y); C1; C2; C3;" # deadlock
+        sample_input_5 = "R1(X); R2(X); W2(Y); W3(Y); W1(X); C1; C2; C3"
+        sample_input_6 = "W1(X); W2(Y); W1(Y); W2(X); C1; C2"             # deadlock
 
         s1 = parse_input(sample_input_1)
         s2 = parse_input(sample_input_2)
@@ -66,9 +71,9 @@ class TestTwoPhaseLocking(unittest.TestCase):
         s4 = parse_input(sample_input_4)
 
         t1 = TwoPhaseLocking(s1, LockManager())
-        t1.run(upgrade=False)
+        t1.run(upgrade=False, rollback=False)
         t2 = TwoPhaseLocking(s2, LockManager())
-        t2.run(upgrade=False)
+        t2.run(upgrade=False, rollback=False)
 
 
         t1_result = ['XL1(X)', 'R1(X)', 'XL3(Y)', 'W3(Y)', 'W1(X)', 'C1', 
@@ -81,15 +86,17 @@ class TestTwoPhaseLocking(unittest.TestCase):
         self.assertEqual(t2.result, t2_result)
         # Raise Exception("Deadlock detected")
         t3 = TwoPhaseLocking(s3, LockManager())
-        self.assertRaises(Exception, t3.run, upgrade=False)
+        self.assertRaises(Exception, t3.run, upgrade=False , rollback=False)
         t4 = TwoPhaseLocking(s4, LockManager())
-        self.assertRaises(Exception, t4.run, upgrade=False)
+        self.assertRaises(Exception, t4.run, upgrade=False , rollback=False)
 
     def test_result_upgrade(self):
         sample_input_1 = "R1(X); W2(X); W2(Y); W3(Y); W1(X); C1; C2; C3;"
         sample_input_2 = "R1(X); R2(Y); R1(Y); W2(Y); W1(X); C1; C2;"
-        sample_input_3 = "R1(X); R2(Y); R1(Y); R2(X); C1; C2;"            # no deadlock because shared unless not upgrade
+        sample_input_3 = "R1(X); R2(Y); R1(Y); R2(X); C1; C2;"            # deadlock if simple
         sample_input_4 = "R1(X) ;W2(Y) ;W2(X); W3(Y) ;W1(Y); C1; C2; C3;" # deadlock
+        sample_input_5 = "R1(X); R2(X); W2(Y); W3(Y); W1(X); C1; C2; C3"
+        sample_input_6 = "W1(X); W2(Y); W1(Y); W2(X); C1; C2"             # deadlock
             
         s1 = parse_input(sample_input_1)
         s2 = parse_input(sample_input_2)
@@ -97,11 +104,11 @@ class TestTwoPhaseLocking(unittest.TestCase):
         s4 = parse_input(sample_input_4)
 
         t1 = TwoPhaseLocking(s1, LockManager())
-        t1.run(upgrade=True)
+        t1.run(upgrade=True, rollback=False)
         t2 = TwoPhaseLocking(s2, LockManager())
-        t2.run(upgrade=True)
+        t2.run(upgrade=True, rollback=False)
         t3 = TwoPhaseLocking(s3, LockManager())
-        t3.run(upgrade=True)
+        t3.run(upgrade=True, rollback=False)
 
         t1_result = ['SL1(X)', 'R1(X)', 'XL3(Y)', 'W3(Y)', 'XU1(X)' , 'W1(X)', 'C1', 
             'UL1(X)', 'XL2(X)', 'W2(X)', 'C3',
@@ -118,7 +125,7 @@ class TestTwoPhaseLocking(unittest.TestCase):
         self.assertEqual(t3.result, t3_result)
         # Raise Exception("Deadlock detected")
         t4 = TwoPhaseLocking(s4, LockManager())
-        self.assertRaises(Exception, t4.run, upgrade=True)
+        self.assertRaises(Exception, t4.run, upgrade=True, rollback=False)
 
 
 if __name__ == '__main__':

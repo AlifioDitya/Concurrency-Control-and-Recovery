@@ -275,7 +275,7 @@ class TwoPhaseLocking:
             self.queue_to_schedule()
 
 
-    def run(self, upgrade=True, rollback=True):
+    def run(self, upgrade=False, rollback=False):
         self.upgrade = upgrade
         self.rollback = rollback
         while len(self.parsed_schedule) > 0:
