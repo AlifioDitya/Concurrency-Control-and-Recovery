@@ -20,6 +20,12 @@ class Operation(enum.Enum):
     WRITE = 2                   # write
     COMMIT = 3                  # commit
 
+    def __str__(self):
+        return self.name
+    
+    def __repr__(self):
+        return self.__str__()
+
 class LockType(enum.Enum):
     X = 1                       # exclusive lock
     S = 2                       # shared lock
@@ -64,7 +70,7 @@ class LockManager:
         self.locks_table = {}
 
     def lock_data(self, transaction_id: int, data_item: str, lock_type: LockType):
-        self.locks_table[data_item] = lock_type
+        # self.locks_table[data_item] = lock_type
         self.locks_table[(transaction_id, data_item)] = lock_type
 
     def unlock(self, transaction_id: int):
@@ -78,8 +84,8 @@ class LockManager:
     def unlock_data(self, transaction_id: int, data_item: str):
         if (transaction_id, data_item) in self.locks_table:
             del self.locks_table[(transaction_id, data_item)]
-            if data_item in self.locks_table:
-                del self.locks_table[data_item]
+            # if data_item in self.locks_table:
+            #     del self.locks_table[data_item]
 
     def is_locked(self, data_item: str) -> bool:
         return data_item in self.locks_table
@@ -94,10 +100,11 @@ class LockManager:
         return self.locks_table[(transaction_id, data_item)] == lock_type
     
     def lock_type(self, data_item: str) -> LockType:
-        return self.locks_table[data_item]
+        lock_types = [t[1] for t in self.locks_table if t == data_item]
+        return lock_types
     
     def upgrade_lock(self, transaction_id: int, data_item: str, lock_type: LockType):
-        self.locks_table[data_item] = lock_type
+        # self.locks_table[data_item] = lock_type
         self.locks_table[(transaction_id, data_item)] = lock_type
 
     def is_lock_shared(self, data_item: str) -> bool:
@@ -114,8 +121,9 @@ class TwoPhaseLocking:
         self.locks_manager = lockmanager
         self.waiting_queue = []
         self.result = []
-        self.upgrade = True
-        self.rollback = True
+        self.upgrade = False
+        self.rollback = False
+        self.verbose = False
     
     def add_queue(self, operation: Operation, transaction_id: int, data_item: str):
         self.waiting_queue.append((operation, transaction_id, data_item))
@@ -164,10 +172,22 @@ class TwoPhaseLocking:
         self.waiting_queue = []    
 
     def print_operation(self, operation: Operation, transaction_id: int, data_item: str):
-        if data_item == "":
-            print(operation , " Transaction ID: ", transaction_id)
-        else:
-            print(operation , " Transaction ID: ", transaction_id, " Data Item: ", data_item)
+        out = "Current Operation: "
+        out += str(operation) + " " + str(transaction_id)
+        if data_item != "":
+            out += " (" + data_item + ")"
+        print(out)
+
+    def print_result(self):
+        print("Final Schedule:")
+        for r in self.result:
+            print(r, end="; ")
+
+    def print_state(self):
+        print("Schedule: ", self.parsed_schedule)
+        print("Locks Table: ", self.locks_manager.locks_table)
+        print("Waiting Queue: ", self.waiting_queue)
+        print("Result: ", self.result)
 
 
     def rollback_transaction(self, transaction_id: int, data_item: str):
@@ -203,8 +223,10 @@ class TwoPhaseLocking:
         # print(self.parsed_schedule)
         
         self.add_rollback_result(transaction_id, data_item)
+        # for data_item in [t[1] for t in self.locks_manager.locks_table if t[0] == transaction_id]:
+        #     self.add_unlock_result(transaction_id, data_item)
         self.locks_manager.unlock(transaction_id)
-        self.parsed_schedule = self.parsed_schedule + p_add
+        self.parsed_schedule = p_add + self.parsed_schedule 
 
 
     def wound_wait(self, transaction_id :int, data_item:str):
@@ -215,10 +237,12 @@ class TwoPhaseLocking:
         print("Wound wait: ", transaction_id, data_item, oldest_transaction, younger_transactions)
 
         if oldest_transaction < transaction_id:
+            print("Add to queue")
             self.add_queue(Operation.WRITE, transaction_id, data_item)
             return
         
         for t in younger_transactions:
+            print("Rollback: ", t, data_item)
             self.rollback_transaction(t, data_item)
 
         self.parsed_schedule.insert(0, (Operation.WRITE, transaction_id, data_item))
@@ -275,14 +299,17 @@ class TwoPhaseLocking:
             self.queue_to_schedule()
 
 
-    def run(self, upgrade=False, rollback=False):
+    def run(self, upgrade=False, rollback=False, verbose=False):
         self.upgrade = upgrade
         self.rollback = rollback
+        self.verbose = verbose
         while len(self.parsed_schedule) > 0:
+    
             operation : Operation
             transaction_id : int
             data_item : str
             operation, transaction_id, data_item = self.parsed_schedule.pop(0) 
+
 
             match operation:
                 case Operation.READ | Operation.WRITE:
@@ -294,6 +321,10 @@ class TwoPhaseLocking:
 
                 case _:
                     raise Exception("Invalid operation")
+                
+            self.print_operation(operation, transaction_id, data_item)
+            self.print_state()
+            print()
         
         # raise error if deadlock
         if len(self.waiting_queue) > 0:
@@ -308,12 +339,10 @@ if __name__ == "__main__":
     sample_input_5 = "R1(X); R2(X); W2(Y); W3(Y); W1(X); C1; C2; C3"
     sample_input_6 = "W1(X); W2(Y); W1(Y); W2(X); C1; C2"             # deadlock
 
-    schedule = parse_input(sample_input_6)
+    schedule = parse_input(sample_input_1)
 
     transaction = TwoPhaseLocking(schedule)
-    transaction.run(upgrade=False, rollback=True)
-    print(transaction.result)
-
-
+    transaction.run(upgrade=False, rollback=False, verbose=True)
+    transaction.print_result()
 
     
