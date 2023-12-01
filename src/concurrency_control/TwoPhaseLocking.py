@@ -227,11 +227,11 @@ class TwoPhaseLocking:
         # print(self.parsed_schedule)
         
         self.add_rollback_result(transaction_id, data_item)
-        # for data_item in [t[1] for t in self.locks_manager.locks_table if t[0] == transaction_id]:
-        #     self.add_unlock_result(transaction_id, data_item)
+        for data_item in [t[1] for t in self.locks_manager.locks_table if t[0] == transaction_id]:
+            self.add_unlock_result(transaction_id, data_item)
         self.locks_manager.unlock(transaction_id)
-        # for t in p_add:
-        #     self.add_queue(t[0], t[1] , t[2])
+        for t in p_add:
+            self.add_queue(t[0], t[1] , t[2])
 
     def wound_wait(self, transaction_id :int, data_item:str):
         conflicting_transactions = self.locks_manager.get_transaction_ids(data_item) + [transaction_id]
@@ -347,7 +347,6 @@ if __name__ == "__main__":
     schedule = parse_input(sample_input_1)
 
     transaction = TwoPhaseLocking(schedule)
-    transaction.run(upgrade=False, rollback=False, verbose=True)
+    transaction.run(upgrade=False, rollback=True, verbose=True)
     transaction.print_result()
-
     
