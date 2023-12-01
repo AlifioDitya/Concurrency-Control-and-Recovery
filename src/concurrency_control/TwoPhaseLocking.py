@@ -12,9 +12,9 @@
 # R1(X); W2(X); W2(Y); W3(Y); W1(X); C1; C2; C3;
 
 # output the final schedule after two phase locking
-
 import enum
 
+# enum
 class Operation(enum.Enum):
     READ = 1                    # read
     WRITE = 2                   # write
@@ -25,25 +25,6 @@ class Operation(enum.Enum):
     
     def __repr__(self):
         return self.__str__()
-
-class LockType(enum.Enum):
-    X = 1                       # exclusive lock
-    S = 2                       # shared lock
-
-    def __lt__ (self, other : 'LockType'):
-        return self.value < other.value
-    
-    def __gt__ (self, other : 'LockType'):
-        return self.value > other.value
-    
-    def __eq__ (self, other : 'LockType'):
-        return self.value == other.value
-
-def parse_input(input: str) -> list:
-    input = input.split(";")
-    input = [s.strip() for s in input]
-    input = [s for s in input if s != '']
-    return input
 
 def parse_schedule(schedule: list) -> list:
     # parse the schedule
@@ -64,61 +45,18 @@ def parse_schedule(schedule: list) -> list:
         data_item = s[3:-1]
         result.append((operation, transaction_id, data_item))
     return result
-
-class LockManager:
-    def __init__(self):
-        self.locks_table = {}
-
-    def lock_data(self, transaction_id: int, data_item: str, lock_type: LockType):
-        self.locks_table[data_item] = lock_type
-        self.locks_table[(transaction_id, data_item)] = lock_type
-
-    def unlock(self, transaction_id: int):
-        keys_to_remove = [t for t in self.locks_table if 
-                          isinstance(t, tuple) and t[0] == transaction_id]
-        for key in keys_to_remove:
-            if type(key) == tuple and key[0] == transaction_id:
-                self.unlock_data(transaction_id, key[1])
-        return True
-
-    def unlock_data(self, transaction_id: int, data_item: str):
-        if (transaction_id, data_item) in self.locks_table:
-            del self.locks_table[(transaction_id, data_item)]
-            if data_item in self.locks_table:
-                del self.locks_table[data_item]
-
-    def is_locked(self, data_item: str) -> bool:
-        return data_item in self.locks_table
-            
-    def is_locked_by(self, transaction_id: int) -> bool:
-        return transaction_id in [t[0] for t in self.locks_table]
-        
-    def has_lock(self, transaction_id: int, data_item: str) -> bool:
-        return (transaction_id, data_item) in self.locks_table
     
-    def has_lock_type(self, transaction_id: int, data_item: str, lock_type: LockType) -> bool:
-        return self.locks_table[(transaction_id, data_item)] == lock_type
-    
-    def lock_type(self, data_item: str) -> LockType:
-        return self.locks_table[data_item]
-    
-    def upgrade_lock(self, transaction_id: int, data_item: str, lock_type: LockType):
-        self.locks_table[data_item] = lock_type
-        self.locks_table[(transaction_id, data_item)] = lock_type
+import os, sys
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(CURRENT_DIR)
 
-    def is_lock_shared(self, data_item: str) -> bool:
-        return len([t for t in self.locks_table if 
-                   isinstance(t, tuple) and t[1] == data_item]) > 1
-    
-    def get_transaction_ids(self, data_item: str) -> list:
-        return [t[0] for t in self.locks_table if 
-                isinstance(t, tuple) and t[1] == data_item]
-    
-    def get_lock_table(self):
-        # return lock table with key tuple only
-        return {k: self.locks_table[k] for k in self.locks_table if isinstance(k, tuple)}
-    
+PARENT_DIR = os.path.dirname(CURRENT_DIR)
+sys.path.append(PARENT_DIR)
+
+from transaction.LockManager import LockManager, LockType
+from util.Util import parse_input
 class TwoPhaseLocking:
+    
     def __init__(self, schedule: list, lockmanager: LockManager = LockManager()):
         self.schedule = schedule
         self.parsed_schedule = parse_schedule(schedule)
@@ -129,6 +67,7 @@ class TwoPhaseLocking:
         self.rollback = False
         self.verbose = False
     
+    # queue method
     def add_queue(self, operation: Operation, transaction_id: int, data_item: str):
         self.waiting_queue.append((operation, transaction_id, data_item))
 
@@ -138,6 +77,7 @@ class TwoPhaseLocking:
     def remove_queue(self, transaction_id: int):
         self.waiting_queue = [t for t in self.waiting_queue if t[1] != transaction_id]
 
+    # result method
     def add_result(self, operation: Operation, transaction_id: int, data_item: str=""):
         transaction_id = str(transaction_id)
         op_str = "R" if operation == Operation.READ else "W" if operation == Operation.WRITE else "C"
@@ -164,6 +104,7 @@ class TwoPhaseLocking:
         transaction_id = str(transaction_id)
         self.result.append("RB" + transaction_id + "(" + data_item + ")")
 
+    # schedule method
     def queue_to_schedule(self):
         to_add = []
 
@@ -175,6 +116,7 @@ class TwoPhaseLocking:
 
         self.waiting_queue = []    
 
+    # print to stdout
     def print_operation(self, operation: Operation, transaction_id: int, data_item: str):
         out = "Current Operation: "
         out += str(operation) + " " + str(transaction_id)
@@ -193,9 +135,8 @@ class TwoPhaseLocking:
         print("Waiting Queue: ", self.waiting_queue)
         print("Result: ", self.result)
 
-
+    # transaction algo
     def rollback_transaction(self, transaction_id: int, data_item: str):
-        # get schedule from result for transaction id until locking
         p_schedule = [t for t in self.schedule if str(transaction_id) in t]
         t_schedule = [t for t in self.result if str(transaction_id) in t]
                     
@@ -206,7 +147,6 @@ class TwoPhaseLocking:
                 break
     
         t_remove = t_schedule[index:]
-    
         index = -1
         for i in range(len(p_schedule)):
             if p_schedule[i] in t_remove:
@@ -218,11 +158,12 @@ class TwoPhaseLocking:
 
         # print(t_remove)
         # print(p_add)
-        
         # print(self.result)
         # print(self.parsed_schedule)
+
         self.result = [t for t in self.result if t not in t_remove]
         self.parsed_schedule = [t for t in self.parsed_schedule if t not in p_add]
+
         # print(self.result)
         # print(self.parsed_schedule)
         
@@ -238,20 +179,23 @@ class TwoPhaseLocking:
         oldest_transaction = min(conflicting_transactions)
         younger_transactions = [t for t in conflicting_transactions if t > oldest_transaction]
 
-        print("Wound wait: ", transaction_id, data_item, oldest_transaction, younger_transactions)
+        print("Wound wait: ")
+        print("Current transaction: ", transaction_id)
+        print("Oldest transaction: ", oldest_transaction)
+        print("Younger transactions: ", younger_transactions)
 
         if oldest_transaction < transaction_id:
-            print("Add to queue")
+            print("Add to queue\n")
             self.add_queue(Operation.WRITE, transaction_id, data_item)
             return
         
         for t in younger_transactions:
             print("Rollback: ", t, data_item)
             self.rollback_transaction(t, data_item)
-
+        
+        print()
         self.parsed_schedule.insert(0, (Operation.WRITE, transaction_id, data_item))
             
-
     def process_read_write(self, 
         operation: Operation, transaction_id: int, 
         data_item: str,lock_type: LockType):
@@ -289,7 +233,6 @@ class TwoPhaseLocking:
         self.add_lock_result(transaction_id, data_item, lock_type)
         self.add_result(operation, transaction_id, data_item)
 
-
     def process_commit(self, transaction_id: int, operation: Operation, data_item: str):
         if self.is_waiting(transaction_id):
             self.add_queue(operation, transaction_id, data_item)
@@ -302,7 +245,7 @@ class TwoPhaseLocking:
             self.locks_manager.unlock(transaction_id)
             self.queue_to_schedule()
 
-
+    # main method
     def run(self, upgrade=False, rollback=False, verbose=False):
         self.upgrade = upgrade
         self.rollback = rollback
@@ -343,10 +286,9 @@ if __name__ == "__main__":
     sample_input_4 = "R1(X) ;W2(Y) ;W2(X); W3(Y) ;W1(Y); C1; C2; C3;" # deadlock
     sample_input_5 = "R1(X); R2(X); W2(Y); W3(Y); W1(X); C1; C2; C3"
     sample_input_6 = "W1(X); W2(Y); W1(Y); W2(X); C1; C2"             # deadlock
-
-    schedule = parse_input(sample_input_1)
+    schedule = parse_input(sample_input_4)
 
     transaction = TwoPhaseLocking(schedule)
-    transaction.run(upgrade=False, rollback=True, verbose=True)
+    transaction.run(upgrade=True, rollback=True, verbose=False)
     transaction.print_result()
     

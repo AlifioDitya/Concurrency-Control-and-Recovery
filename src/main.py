@@ -1,6 +1,7 @@
 from transaction.Query import Read, Write
 from concurrency_control.OCC import OCCTransaction, OCC
 from concurrency_control.TwoPhaseLocking import TwoPhaseLocking, parse_input, LockManager
+from util.Util import menu_tpl, input_tpl, option_tpl, parse_input
 
 ITEM_A = 'A'
 ITEM_B = 'B'
@@ -28,19 +29,26 @@ def occ():
     concurrencyManager.run()
 
 def two_phase():
+    print("Two-phase simple lock with some feature")
+    print()
     sample_input_1 = "R1(X); W2(X); W2(Y); W3(Y); W1(X); C1; C2; C3;"
     sample_input_6 = "W1(X); W2(Y); W1(Y); W2(X); C1; C2"             # deadlock
 
-    s1 = parse_input(sample_input_1)
-    s6 = parse_input(sample_input_6)
+    schedule = input_tpl(menu_tpl() , sample_input_1)
+    p_schedule = parse_input(schedule)
+    print()
 
-    t1 = TwoPhaseLocking(s1,LockManager())
-    t6 = TwoPhaseLocking(s6,LockManager())
+    option = option_tpl()
+    upgrade = option[0]
+    rollback = option[1]
+    verbose = option[2]
+    print()
 
-    t1.run()    
-    print(t1.result)
-    t6.run(rollback=True)
-    print(t6.result)
+    tpl = TwoPhaseLocking(p_schedule, LockManager())
+    tpl.run(upgrade=upgrade, rollback=rollback, verbose=verbose)
+    print()
+
+    tpl.print_result()
 
 
 if __name__ == "__main__":
