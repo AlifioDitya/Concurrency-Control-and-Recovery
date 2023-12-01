@@ -70,7 +70,7 @@ class LockManager:
         self.locks_table = {}
 
     def lock_data(self, transaction_id: int, data_item: str, lock_type: LockType):
-        # self.locks_table[data_item] = lock_type
+        self.locks_table[data_item] = lock_type
         self.locks_table[(transaction_id, data_item)] = lock_type
 
     def unlock(self, transaction_id: int):
@@ -84,8 +84,8 @@ class LockManager:
     def unlock_data(self, transaction_id: int, data_item: str):
         if (transaction_id, data_item) in self.locks_table:
             del self.locks_table[(transaction_id, data_item)]
-            # if data_item in self.locks_table:
-            #     del self.locks_table[data_item]
+            if data_item in self.locks_table:
+                del self.locks_table[data_item]
 
     def is_locked(self, data_item: str) -> bool:
         return data_item in self.locks_table
@@ -100,11 +100,10 @@ class LockManager:
         return self.locks_table[(transaction_id, data_item)] == lock_type
     
     def lock_type(self, data_item: str) -> LockType:
-        lock_types = [t[1] for t in self.locks_table if t == data_item]
-        return lock_types
+        return self.locks_table[data_item]
     
     def upgrade_lock(self, transaction_id: int, data_item: str, lock_type: LockType):
-        # self.locks_table[data_item] = lock_type
+        self.locks_table[data_item] = lock_type
         self.locks_table[(transaction_id, data_item)] = lock_type
 
     def is_lock_shared(self, data_item: str) -> bool:
@@ -114,6 +113,11 @@ class LockManager:
     def get_transaction_ids(self, data_item: str) -> list:
         return [t[0] for t in self.locks_table if 
                 isinstance(t, tuple) and t[1] == data_item]
+    
+    def get_lock_table(self):
+        # return lock table with key tuple only
+        return {k: self.locks_table[k] for k in self.locks_table if isinstance(k, tuple)}
+    
 class TwoPhaseLocking:
     def __init__(self, schedule: list, lockmanager: LockManager = LockManager()):
         self.schedule = schedule
@@ -185,7 +189,7 @@ class TwoPhaseLocking:
 
     def print_state(self):
         print("Schedule: ", self.parsed_schedule)
-        print("Locks Table: ", self.locks_manager.locks_table)
+        print("Locks Table: ", self.locks_manager.get_lock_table())
         print("Waiting Queue: ", self.waiting_queue)
         print("Result: ", self.result)
 
@@ -226,8 +230,8 @@ class TwoPhaseLocking:
         # for data_item in [t[1] for t in self.locks_manager.locks_table if t[0] == transaction_id]:
         #     self.add_unlock_result(transaction_id, data_item)
         self.locks_manager.unlock(transaction_id)
-        self.parsed_schedule = p_add + self.parsed_schedule 
-
+        # for t in p_add:
+        #     self.add_queue(t[0], t[1] , t[2])
 
     def wound_wait(self, transaction_id :int, data_item:str):
         conflicting_transactions = self.locks_manager.get_transaction_ids(data_item) + [transaction_id]
@@ -322,9 +326,10 @@ class TwoPhaseLocking:
                 case _:
                     raise Exception("Invalid operation")
                 
-            self.print_operation(operation, transaction_id, data_item)
-            self.print_state()
-            print()
+            if self.verbose:
+                self.print_operation(operation, transaction_id, data_item)
+                self.print_state()
+                print()
         
         # raise error if deadlock
         if len(self.waiting_queue) > 0:
