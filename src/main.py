@@ -34,21 +34,24 @@ def two_phase():
     sample_input_1 = "R1(X); W2(X); W2(Y); W3(Y); W1(X); C1; C2; C3;"
     sample_input_6 = "W1(X); W2(Y); W1(Y); W2(X); C1; C2"             # deadlock
 
-    schedule = input_tpl(menu_tpl() , sample_input_1)
-    p_schedule = parse_input(schedule)
-    print()
+    try:
+        schedule = input_tpl(menu_tpl() , sample_input_1)
+        p_schedule = parse_input(schedule)
+        print()
 
-    option = option_tpl()
-    upgrade = option[0]
-    rollback = option[1]
-    verbose = option[2]
-    print()
+        option = option_tpl()
+        upgrade = option[0]
+        rollback = option[1]
+        verbose = option[2]
+        print()
 
-    tpl = TwoPhaseLocking(p_schedule, LockManager())
-    tpl.run(upgrade=upgrade, rollback=rollback, verbose=verbose)
-    print()
+        tpl = TwoPhaseLocking(p_schedule, LockManager())
+        tpl.run(upgrade=upgrade, rollback=rollback, verbose=verbose)
+        print()
 
-    tpl.print_result()
+        tpl.print_result()
+    except Exception as e:
+        print("Error: ", e)
 
 
 if __name__ == "__main__":
